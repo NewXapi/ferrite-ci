@@ -110,7 +110,7 @@ jobs:
         # 按维护者裁决 ui-kit 漂移非本 CI 责任面，故限定到 ferrite 自身 workspace 成员。
         run: |
           set -euo pipefail
-          PKGS=$(cargo metadata --no-deps --format-version 1 | python3 -c "import json,sys;print(' '.join(m['name'] for m in json.load(sys.stdin)['workspace_members']))")
+          PKGS=$(cargo metadata --no-deps --format-version 1 | python3 -c "import json,sys;d=json.load(sys.stdin);ws=set(d['workspace_members']);print(' '.join(p['name'] for p in d['packages'] if p['id'] in ws))")
           [ -n "$PKGS" ] || { echo "!! 未能解析 ferrite workspace 成员"; exit 1; }
           echo "只查 ferrite 自身成员(共 $(echo $PKGS | wc -w) 个): $PKGS"
           cargo fmt -p $PKGS --check
