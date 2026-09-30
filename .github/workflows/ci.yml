@@ -19,13 +19,16 @@
 #     - Commit statuses: Write（仅 NewXapi/ferrite）→ 用来回写 CI 结果
 #
 # 安全护栏（重要，别删）：
-#   ▸ fork PR 能读 base 分支的 cache → 这里 cache 只存 ~/.cargo（公共 crate），
-#     绝不 cache target/（target 里有私有 build 产物 + 源码路径）。
+#   ▸ 公开仓无法关闭 fork（allow_forking 只有私有 org 仓能设）；真正的控制是
+#     「触发器列表」：本仓 on: 只挂 workflow_dispatch + repository_dispatch，
+#     没有 pull_request / push / issue 等任何不可信触发器。所以：
+#       - fork PR 跑不了本 workflow（无对应触发器）→ 拿不到 FERRITE_CI_PAT；
+#       - fork PR 读不到缓存（不运行就无 restore）→ 也投毒不了；
+#       - 唯一读得到 cache 的是「可信触发器」的运行，而 cache 只存 ~/.cargo。
+#   ▸ cache 只存 ~/.cargo（公共 crate），绝不存 target/（私有 build 产物+源码路径）。
 #   ▸ 公开仓的 Actions 日志对所有人可见 → 不要在日志 echo 私有源码/密钥；
-#     cargo test 失败会打印源码片段，临时方案可接受，长期建议「关 fork」。
+#     cargo test 失败会打印源码片段，这是公开壳仓绕不开的泄露面，临时可接受。
 #   ▸ 公开仓的 artifacts 任何人可下载 → 不要把私有 build 产物 upload 到本仓。
-#   ▸ 强烈建议：本仓 Settings→General 关掉 "Allow forks"。壳仓是给内部 CI 用的，
-#     不需要外部贡献；一关 fork，cache 泄露 + 恶意 fork PR 的攻击面几乎归零。
 # ============================================================================
 name: CI (private ferrite proxy)
 
