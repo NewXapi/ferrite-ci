@@ -80,7 +80,6 @@ jobs:
           repository: NewXapi/ui-kit
           token: ${{ secrets.FERRITE_CI_PAT }}
           path: .ui-kit
-        shell: bash
       - name: 放到 path dep 解析位置
         run: |
           set -e
