@@ -105,8 +105,15 @@ jobs:
           restore-keys: |
             cargo-${{ runner.os }}-
 
-      - name: cargo fmt
-        run: cargo fmt --all --check
+      - name: cargo fmt（只查 ferrite 自身成员，不递归 ui-kit path dep）
+        # cargo fmt --all 会连本地 path dep（ui-kit）一起格式化，被其既有 fmt 漂移拖累；
+        # 按维护者裁决 ui-kit 漂移非本 CI 责任面，故限定到 ferrite 自身 workspace 成员。
+        run: |
+          set -euo pipefail
+          PKGS=$(cargo metadata --no-deps --format-version 1 | python3 -c "import json,sys;print(' '.join(m['name'] for m in json.load(sys.stdin)['workspace_members']))")
+          [ -n "$PKGS" ] || { echo "!! 未能解析 ferrite workspace 成员"; exit 1; }
+          echo "只查 ferrite 自身成员(共 $(echo $PKGS | wc -w) 个): $PKGS"
+          cargo fmt -p $PKGS --check
 
       - name: cargo clippy
         run: cargo clippy --all-targets -- -D warnings
