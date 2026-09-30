@@ -67,12 +67,11 @@ jobs:
           repository: NewXapi/ferrite
           ref: ${{ github.event.client_payload.ref || inputs.ref || 'main' }}
           token: ${{ secrets.FERRITE_CI_PAT }}
-          path: ferrite
           fetch-depth: 0
 
       - name: 记 SHA（供回写 status 用）
         id: sha
-        run: echo "sha=$(git -C ferrite rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: 检出私有 sibling 依赖 ui-kit 到 $HOME/ui-kit（path dep 解析位）
         uses: actions/checkout@v4
@@ -100,25 +99,22 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cargo
-          key: cargo-${{ runner.os }}-${{ hashFiles('ferrite/Cargo.lock') }}
+          key: cargo-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
           # 关键：Cargo.lock 一变就 miss，但 cargo metadata --no-deps 离线模式要 registry 索引。
           # prefix restore-keys 保证 miss 时仍能恢复上次缓存的 registry/ 索引（等价 rust-cache 的 fallback）。
           restore-keys: |
             cargo-${{ runner.os }}-
 
       - name: cargo fmt
-        working-directory: ferrite
         run: cargo fmt --all --check
 
       - name: cargo clippy
-        working-directory: ferrite
         run: cargo clippy --all-targets -- -D warnings
 
       # 有 base 就按 diff 动态选包，否则全量（与私有仓 ci.yml 的 dynamic-test 对齐）
       - name: 解析受影响包
         id: scope
         if: inputs.base != '' || github.event.client_payload.base != ''
-        working-directory: ferrite
         env:
           CARGO_NET_OFFLINE: 'true'
         run: |
@@ -129,7 +125,6 @@ jobs:
             --wasm-dir crates/web --wasm-dir apps/admin-web --wasm-dir apps/tavern-web
 
       - name: 测试（有 scope 走动态，否则全量）
-        working-directory: ferrite
         run: |
           set -euo pipefail
           if [ "${{ steps.scope.outputs.skip }}" = "true" ]; then
@@ -143,7 +138,6 @@ jobs:
 
       - name: wasm 编译（前端包）
         if: steps.scope.outputs.wasm != ''
-        working-directory: ferrite
         run: |
           set -euo pipefail
           IFS=',' read -ra P <<< "${{ steps.scope.outputs.wasm }}"
