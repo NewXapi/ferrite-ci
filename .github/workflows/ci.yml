@@ -58,6 +58,13 @@ jobs:
   ci:
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    # 仓库 .cargo/config.toml 的 build.rustc-wrapper = "sccache" 是给本地多
+    # worktree 共享编译缓存用的；runner 没装 sccache，装了也没收益——本仓安全
+    # 护栏只持久化 ~/.cargo，~/.cache/sccache 每次冷启动（命中率 0）。空值 env
+    # 覆盖配置、CI 走纯 rustc（实测 CARGO_BUILD_RUSTC_WRAPPER="" 压过 config）。
+    # 对比 mold（step 装的）：链接器硬依赖必须装；sccache 只是优化，关掉即可。
+    env:
+      CARGO_BUILD_RUSTC_WRAPPER: ""
     outputs:
       sha: ${{ steps.sha.outputs.sha }}
     steps:
