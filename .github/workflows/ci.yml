@@ -80,18 +80,21 @@ jobs:
         id: sha
         run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
-      # cargo 抓私有 git 依赖 ui-kit（.cargo/config.toml 的 git-fetch-with-cli）
-      # 走 git 子进程，读不到 checkout 写在工作区 local config 的凭据
-      # （run 36997161137：could not read Username）。FERRITE_CI_PAT 是组织面、
-      # 对个人 fork 无读权限（run 36998022420：403 Write access not granted），
-      # 故单独用 UIKIT_PAT（个人面）做精确 URL 重写：只作用于 fork 仓，不与
-      # checkout 的 extraheader 叠双 Authorization（run 36997648403 的 400 教训）。
-      - name: 给 cargo 抓 ui-kit fork 配 UIKIT_PAT 凭据（URL 重写）
+      # git-fetch-with-cli=true 后，所有 cargo git 依赖（kymido org 仓 +
+      # ui-kit 个人 fork）都走 git 子进程，读不到 checkout 写在工作区
+      # local config 的 extraheader（run 36997161137：could not read Username）。
+      # FERRITE_CI_PAT 是组织面（跨不到个人仓，run 36998022420：403），
+      # UIKIT_PAT 是个人面。按 insteadOf 最长匹配：org 全量 → 组织 PAT，
+      # fork 精确 URL → 个人 PAT 覆盖。token 只进 gitconfig 不回显；缺失显式报错。
+      - name: 给 cargo 的 git 依赖配凭据（URL 重写）
         env:
+          FERRITE_CI_PAT: ${{ secrets.FERRITE_CI_PAT }}
           UIKIT_PAT: ${{ secrets.UIKIT_PAT }}
         run: |
           set -euo pipefail
-          if [ -z "${UIKIT_PAT:-}" ]; then echo "!! 壳仓缺 UIKIT_PAT secret"; exit 1; fi
+          if [ -z "${FERRITE_CI_PAT:-}" ]; then echo "!! 缺 FERRITE_CI_PAT secret"; exit 1; fi
+          if [ -z "${UIKIT_PAT:-}" ]; then echo "!! 缺 UIKIT_PAT secret"; exit 1; fi
+          git config --global url."https://x-access-token:${FERRITE_CI_PAT}@github.com/".insteadOf "https://github.com/"
           git config --global url."https://x-access-token:${UIKIT_PAT}@github.com/hathawayANdRX105/ui-kit.git".insteadOf "https://github.com/hathawayANdRX105/ui-kit.git"
 
       # 原「检出 ui-kit 拷到 $HOME/ui-kit」两步已删：ui-kit 现为 git 依赖、
