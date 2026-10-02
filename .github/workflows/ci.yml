@@ -80,6 +80,17 @@ jobs:
         id: sha
         run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
+      # cargo 抓私有 git 依赖 ui-kit（.cargo/config.toml 的 git-fetch-with-cli）
+      # 走 git 子进程，但 actions/checkout 的凭据只写在本工作区 local config，
+      # cargo 的 fetch 读不到 → "could not read Username"。提升为全局配置后，
+      # 所有 github.com 的 https fetch（含 cargo）都带同一份凭据，不引入新 secret。
+      - name: 提升检出凭据到全局 git 配置（供 cargo 抓私有 ui-kit fork）
+        run: |
+          set -euo pipefail
+          EX=$(git config --local --get http.https://github.com/.extraheader || true)
+          if [ -z "$EX" ]; then echo "!! checkout 未写 extraheader"; exit 1; fi
+          git config --global http.https://github.com/.extraheader "$EX"
+
       - name: 检出私有 sibling 依赖 ui-kit 到 $HOME/ui-kit（path dep 解析位）
         uses: actions/checkout@v4
         with:
