@@ -91,20 +91,9 @@ jobs:
           if [ -z "$EX" ]; then echo "!! checkout 未写 extraheader"; exit 1; fi
           git config --global http.https://github.com/.extraheader "$EX"
 
-      - name: 检出私有 sibling 依赖 ui-kit 到 $HOME/ui-kit（path dep 解析位）
-        uses: actions/checkout@v4
-        with:
-          repository: NewXapi/ui-kit
-          token: ${{ secrets.FERRITE_CI_PAT }}
-          path: .ui-kit
-      - name: 放到 path dep 解析位置
-        run: |
-          set -e
-          rm -rf "$HOME/ui-kit"
-          cp -r .ui-kit "$HOME/ui-kit"
-          rm -rf .ui-kit
-          test -f "$HOME/ui-kit/Cargo.toml" && echo "ui-kit -> $HOME/ui-kit"
-
+      # 原「检出 ui-kit 拷到 $HOME/ui-kit」两步已删：ui-kit 现为 git 依赖、
+      # cargo 自行抓取，拷贝无消费方；且该 checkout 与上面的全局 extraheader
+      # 叠出双 AUTHORIZATION 头 → GitHub 400（run 36997648403 实测）。
       - name: Rust 工具链
         uses: dtolnay/rust-toolchain@stable
         with:
