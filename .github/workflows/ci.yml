@@ -81,19 +81,21 @@ jobs:
         run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       # cargo 抓私有 git 依赖 ui-kit（.cargo/config.toml 的 git-fetch-with-cli）
-      # 走 git 子进程，但 actions/checkout 的凭据只写在本工作区 local config，
-      # cargo 的 fetch 读不到 → "could not read Username"。提升为全局配置后，
-      # 所有 github.com 的 https fetch（含 cargo）都带同一份凭据，不引入新 secret。
-      - name: 提升检出凭据到全局 git 配置（供 cargo 抓私有 ui-kit fork）
+      # 走 git 子进程，读不到 checkout 写在工作区 local config 的凭据
+      # （run 36997161137：could not read Username）。FERRITE_CI_PAT 是组织面、
+      # 对个人 fork 无读权限（run 36998022420：403 Write access not granted），
+      # 故单独用 UIKIT_PAT（个人面）做精确 URL 重写：只作用于 fork 仓，不与
+      # checkout 的 extraheader 叠双 Authorization（run 36997648403 的 400 教训）。
+      - name: 给 cargo 抓 ui-kit fork 配 UIKIT_PAT 凭据（URL 重写）
+        env:
+          UIKIT_PAT: ${{ secrets.UIKIT_PAT }}
         run: |
           set -euo pipefail
-          EX=$(git config --local --get http.https://github.com/.extraheader || true)
-          if [ -z "$EX" ]; then echo "!! checkout 未写 extraheader"; exit 1; fi
-          git config --global http.https://github.com/.extraheader "$EX"
+          if [ -z "${UIKIT_PAT:-}" ]; then echo "!! 壳仓缺 UIKIT_PAT secret"; exit 1; fi
+          git config --global url."https://x-access-token:${UIKIT_PAT}@github.com/hathawayANdRX105/ui-kit.git".insteadOf "https://github.com/hathawayANdRX105/ui-kit.git"
 
       # 原「检出 ui-kit 拷到 $HOME/ui-kit」两步已删：ui-kit 现为 git 依赖、
-      # cargo 自行抓取，拷贝无消费方；且该 checkout 与上面的全局 extraheader
-      # 叠出双 AUTHORIZATION 头 → GitHub 400（run 36997648403 实测）。
+      # cargo 自行抓取，拷贝无消费方。
       - name: Rust 工具链
         uses: dtolnay/rust-toolchain@stable
         with:
